@@ -27,7 +27,13 @@ func main() {
 			showHelp()
 		}
 	} else {
-		showHelp()
+		// Default to API server in production, help in development
+		if os.Getenv("RAILWAY_ENVIRONMENT") != "" || os.Getenv("PORT") != "" {
+			fmt.Println("Production environment detected - starting API server...")
+			runAPIServer()
+		} else {
+			showHelp()
+		}
 	}
 }
 
@@ -53,12 +59,32 @@ Environment Setup:
 }
 
 func runAPIServer() {
-	cmd := exec.Command("go", "run", "./api/main.go")
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	// Check if we're in production (no Go available)
+	if !isCommandAvailable("go") {
+		// In production, we should have a pre-built binary
+		// For now, let's just redirect to the api binary
+		fmt.Println("Production mode detected - looking for API binary...")
+		
+		// Try to find and run the API binary
+		if _, err := os.Stat("./api-server"); err == nil {
+			cmd := exec.Command("./api-server")
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			if err := cmd.Run(); err != nil {
+				log.Fatalf("Failed to start API server: %v", err)
+			}
+		} else {
+			log.Fatal("API server binary not found in production mode")
+		}
+	} else {
+		// Development mode
+		cmd := exec.Command("go", "run", "./api/main.go")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
 
-	if err := cmd.Run(); err != nil {
-		log.Fatalf("Failed to start API server: %v", err)
+		if err := cmd.Run(); err != nil {
+			log.Fatalf("Failed to start API server: %v", err)
+		}
 	}
 }
 
