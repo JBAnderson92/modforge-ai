@@ -34,7 +34,7 @@ const Profile: React.FC = () => {
             <div className="space-y-3">
               <div>
                 <label className="text-sm font-medium text-gray-500">Available Credits</label>
-                <p className="text-2xl font-bold text-primary-600">{user.credits}</p>
+                <p className="text-2xl font-bold text-blue-600">{user.credits}</p>
               </div>
               <button className="btn-primary w-full">
                 Purchase More Credits

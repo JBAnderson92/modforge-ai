@@ -1,16 +1,36 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 const Home: React.FC = () => {
-  const { user } = useAuth()
+  const { user, login } = useAuth()
+  const [showSignUp, setShowSignUp] = useState(false)
+  const [showDemo, setShowDemo] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault()
+    try {
+      await login(email, password)
+      setShowSignUp(false)
+      setEmail('')
+      setPassword('')
+    } catch (error) {
+      console.error('Sign up failed:', error)
+    }
+  }
+
+  const handleDemoClick = () => {
+    setShowDemo(true)
+  }
 
   return (
     <div className="max-w-6xl mx-auto">
       {/* Hero Section */}
       <div className="text-center py-16">
         <h1 className="text-5xl font-bold text-gray-900 mb-6">
-          Transform Your Game Mods with <span className="text-primary-600">AI</span>
+          Transform Your Game Mods with <span className="text-blue-600">AI</span>
         </h1>
         <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
           Upload your Minecraft, Skyrim, or Lua mods and let AI rebalance, translate, 
@@ -22,11 +42,17 @@ const Home: React.FC = () => {
               Start Modding with AI
             </Link>
           ) : (
-            <button className="btn-primary text-lg px-8 py-3">
+            <button 
+              onClick={() => setShowSignUp(true)}
+              className="btn-primary text-lg px-8 py-3"
+            >
               Get Started Free
             </button>
           )}
-          <button className="btn-secondary text-lg px-8 py-3">
+          <button 
+            onClick={handleDemoClick}
+            className="btn-secondary text-lg px-8 py-3"
+          >
             Watch Demo
           </button>
         </div>
@@ -35,8 +61,8 @@ const Home: React.FC = () => {
       {/* Features Grid */}
       <div className="grid md:grid-cols-3 gap-8 py-16">
         <div className="card text-center">
-          <div className="w-12 h-12 bg-primary-100 rounded-lg mx-auto mb-4 flex items-center justify-center">
-            <span className="text-primary-600 text-2xl">🎮</span>
+          <div className="w-12 h-12 bg-blue-100 rounded-lg mx-auto mb-4 flex items-center justify-center">
+            <span className="text-blue-600 text-2xl">🎮</span>
           </div>
           <h3 className="text-xl font-semibold mb-3">Multi-Game Support</h3>
           <p className="text-gray-600">
@@ -46,8 +72,8 @@ const Home: React.FC = () => {
         </div>
 
         <div className="card text-center">
-          <div className="w-12 h-12 bg-primary-100 rounded-lg mx-auto mb-4 flex items-center justify-center">
-            <span className="text-primary-600 text-2xl">🤖</span>
+          <div className="w-12 h-12 bg-blue-100 rounded-lg mx-auto mb-4 flex items-center justify-center">
+            <span className="text-blue-600 text-2xl">🤖</span>
           </div>
           <h3 className="text-xl font-semibold mb-3">AI-Powered Transformations</h3>
           <p className="text-gray-600">
@@ -57,8 +83,8 @@ const Home: React.FC = () => {
         </div>
 
         <div className="card text-center">
-          <div className="w-12 h-12 bg-primary-100 rounded-lg mx-auto mb-4 flex items-center justify-center">
-            <span className="text-primary-600 text-2xl">⚡</span>
+          <div className="w-12 h-12 bg-blue-100 rounded-lg mx-auto mb-4 flex items-center justify-center">
+            <span className="text-blue-600 text-2xl">⚡</span>
           </div>
           <h3 className="text-xl font-semibold mb-3">Fast & Secure</h3>
           <p className="text-gray-600">
@@ -84,8 +110,8 @@ const Home: React.FC = () => {
               <h4 className="font-semibold mb-2">{preset.name}</h4>
               <p className="text-gray-600 text-sm mb-3">{preset.desc}</p>
               <div className="flex justify-between items-center">
-                <span className="text-primary-600 font-medium">{preset.cost} credit{preset.cost > 1 ? 's' : ''}</span>
-                <button className="text-primary-600 hover:text-primary-700 font-medium">
+                <span className="text-blue-600 font-medium">{preset.cost} credit{preset.cost > 1 ? 's' : ''}</span>
+                <button className="text-blue-600 hover:text-blue-700 font-medium">
                   Try it →
                 </button>
               </div>
@@ -96,14 +122,86 @@ const Home: React.FC = () => {
 
       {/* CTA Section */}
       {!user && (
-        <div className="bg-primary-50 rounded-2xl p-8 text-center">
+        <div className="bg-blue-50 rounded-2xl p-8 text-center">
           <h2 className="text-2xl font-bold mb-4">Ready to Transform Your Mods?</h2>
           <p className="text-gray-600 mb-6">
             Join thousands of modders using AI to enhance their creations.
           </p>
-          <button className="btn-primary">
+          <button 
+            onClick={() => setShowSignUp(true)}
+            className="btn-primary"
+          >
             Start Free Trial
           </button>
+        </div>
+      )}
+
+      {/* Sign Up Modal */}
+      {showSignUp && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md w-full mx-4">
+            <h3 className="text-xl font-bold mb-4">Sign Up for ModForge.ai</h3>
+            <form onSubmit={handleSignUp}>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input"
+                  required
+                />
+              </div>
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Password
+                </label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input"
+                  required
+                />
+              </div>
+              <div className="flex gap-3">
+                <button type="submit" className="btn-primary flex-1">
+                  Sign Up
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setShowSignUp(false)}
+                  className="btn-secondary flex-1"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Demo Modal */}
+      {showDemo && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-2xl w-full mx-4">
+            <h3 className="text-xl font-bold mb-4">ModForge.ai Demo</h3>
+            <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center mb-4">
+              <p className="text-gray-500">🎥 Demo video would go here</p>
+            </div>
+            <p className="text-gray-600 mb-6">
+              Watch how ModForge.ai transforms your game mods using advanced AI technology.
+              Upload any Minecraft, Skyrim, or Lua mod and see instant improvements.
+            </p>
+            <button 
+              onClick={() => setShowDemo(false)}
+              className="btn-primary w-full"
+            >
+              Close Demo
+            </button>
+          </div>
         </div>
       )}
     </div>

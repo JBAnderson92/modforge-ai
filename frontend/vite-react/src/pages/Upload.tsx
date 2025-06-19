@@ -223,14 +223,14 @@ const Upload: React.FC = () => {
           {...getRootProps()} 
           className={`border-2 border-dashed rounded-lg p-12 text-center cursor-pointer transition-colors ${
             isDragActive 
-              ? 'border-primary-500 bg-primary-50' 
+              ? 'border-blue-500 bg-blue-50' 
               : 'border-gray-300 hover:border-gray-400'
           }`}
         >
           <input {...getInputProps()} />
           <UploadIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           {isDragActive ? (
-            <p className="text-primary-600 font-medium">Drop the files here...</p>
+            <p className="text-blue-600 font-medium">Drop the files here...</p>
           ) : (
             <>
               <p className="text-gray-600 font-medium mb-2">
