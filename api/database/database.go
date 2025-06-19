@@ -74,7 +74,7 @@ func RunMigrations(databaseURL string) error {
 	if driverName == "postgres" {
 		log.Println("Checking PostgreSQL migration state...")
 
-		// Check if schema_migrations table exists and clean it up if needed
+		// Check if schema_migrations table exists
 		var exists bool
 		err := db.QueryRow("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'schema_migrations')").Scan(&exists)
 		if err != nil {
@@ -82,10 +82,20 @@ func RunMigrations(databaseURL string) error {
 		}
 
 		if exists {
-			log.Println("Found existing schema_migrations table, cleaning up...")
-			// Drop the schema_migrations table to start fresh
-			if _, err := db.Exec("DROP TABLE IF EXISTS schema_migrations"); err != nil {
-				log.Printf("Warning: Failed to drop schema_migrations table: %v", err)
+			log.Println("Found existing schema_migrations table, checking state...")
+
+			// Check if we have a dirty state or version conflicts
+			var version uint
+			var dirty bool
+			err := db.QueryRow("SELECT version, dirty FROM schema_migrations ORDER BY version DESC LIMIT 1").Scan(&version, &dirty)
+			if err == nil && !dirty {
+				log.Printf("Clean migration state found at version %d, proceeding normally", version)
+			} else {
+				log.Println("Migration state issues found, cleaning up...")
+				// Clean up the migration table to start fresh
+				if _, err := db.Exec("DELETE FROM schema_migrations"); err != nil {
+					log.Printf("Warning: Failed to clean schema_migrations: %v", err)
+				}
 			}
 		}
 	}
@@ -351,7 +361,7 @@ func (db *DB) GetSessionByToken(token string) (*models.UserSession, error) {
 // DeleteSession deletes a user session
 func (db *DB) DeleteSession(token string) error {
 	query := `DELETE FROM user_sessions WHERE token = ?`
-	
+
 	_, err := db.Exec(query, token)
 	if err != nil {
 		return fmt.Errorf("failed to delete session: %w", err)
