@@ -101,14 +101,17 @@ func (h *Handlers) Register(c *fiber.Ctx) error {
 
 	// Create user
 	user := &models.User{
-		ID:          uuid.New().String(),
-		Email:       req.Email,
-		DisplayName: req.DisplayName,
-		Password:    string(hashedPassword),
-		Credits:     10, // Free signup credits
-		Plan:        models.PlanFree,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		ID:                   uuid.New().String(),
+		Email:                req.Email,
+		DisplayName:          req.DisplayName,
+		Password:             string(hashedPassword),
+		FirebaseUID:          nil, // Explicitly set to nil for new auth system
+		Credits:              10,  // Free signup credits
+		Plan:                 models.PlanFree,
+		MonthlyJobsUsed:      0,
+		MonthlyJobsResetDate: time.Now().AddDate(0, 1, 0), // Reset next month
+		CreatedAt:            time.Now(),
+		UpdatedAt:            time.Now(),
 	}
 
 	if err := h.db.CreateUser(user); err != nil {
