@@ -1,24 +1,10 @@
 {
-    "version": 2,
-    "name": "modforge-frontend",
-    "builds": [
+    "rewrites": [
         {
-            "src": "package.json",
-            "use": "@vercel/static-build",
-            "config": {
-                "distDir": "dist"
-            }
+            "source": "/(.*)",
+            "destination": "/index.html"
         }
     ],
-    "routes": [
-        {
-            "src": "/(.*)",
-            "dest": "/index.html"
-        }
-    ],
-    "env": {
-        "VITE_API_URL": "https://your-backend-domain.railway.app"
-    },
     "buildCommand": "npm run build",
     "outputDirectory": "dist",
     "installCommand": "npm install"
