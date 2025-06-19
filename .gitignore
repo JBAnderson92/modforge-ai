@@ -61,3 +61,4 @@ vendor/
 # Air live reload
 .air.toml
 tmp/
+.vercel

@@ -1,0 +1,9 @@
+{
+    "name": "modforge-frontend",
+    "version": "1.0.0",
+    "scripts": {
+        "build": "npm run build:app",
+        "build:app": "echo 'Using pre-built files'"
+    },
+    "dependencies": {}
+}

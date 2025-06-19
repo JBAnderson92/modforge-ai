@@ -1,0 +1,4 @@
+DROP TABLE IF EXISTS user_sessions;
+DROP TABLE IF EXISTS mod_jobs;
+DROP TABLE IF EXISTS mod_presets;
+DROP TABLE IF EXISTS users;
