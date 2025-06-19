@@ -239,7 +239,7 @@ func (db *DB) GetUserByID(id string) (*models.User, error) {
 	query := `
 		SELECT id, email, password_hash, firebase_uid, display_name, credits, plan,
 		       monthly_jobs_used, monthly_jobs_reset_date, created_at, updated_at
-		FROM users WHERE id = ?
+		FROM users WHERE id = $1
 	`
 
 	user := &models.User{}
@@ -263,9 +263,9 @@ func (db *DB) GetUserByID(id string) (*models.User, error) {
 func (db *DB) UpdateUser(user *models.User) error {
 	query := `
 		UPDATE users SET 
-			email = ?, display_name = ?, credits = ?, plan = ?,
-			monthly_jobs_used = ?, monthly_jobs_reset_date = ?, updated_at = ?
-		WHERE id = ?
+			email = $1, display_name = $2, credits = $3, plan = $4,
+			monthly_jobs_used = $5, monthly_jobs_reset_date = $6, updated_at = $7
+		WHERE id = $8
 	`
 
 	user.UpdatedAt = time.Now()
@@ -287,7 +287,7 @@ func (db *DB) UpdateUser(user *models.User) error {
 func (db *DB) CreateUser(user *models.User) error {
 	query := `
 		INSERT INTO users (id, email, password_hash, firebase_uid, display_name, credits, plan, monthly_jobs_used, monthly_jobs_reset_date, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $2)
 	`
 
 	_, err := db.Exec(query,
@@ -308,7 +308,7 @@ func (db *DB) GetUserByEmail(email string) (*models.User, error) {
 	query := `
 		SELECT id, email, password_hash, firebase_uid, display_name, credits, plan,
 		       monthly_jobs_used, monthly_jobs_reset_date, created_at, updated_at
-		FROM users WHERE email = ?
+		FROM users WHERE email = $1
 	`
 
 	user := &models.User{}
@@ -332,7 +332,7 @@ func (db *DB) GetUserByEmail(email string) (*models.User, error) {
 func (db *DB) CreateJob(job *models.Job) error {
 	query := `
 		INSERT INTO mod_jobs (id, user_id, status, game_type, original_filename, original_file_size, original_file_url, preset_type, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 	`
 
 	_, err := db.Exec(query,
@@ -355,7 +355,7 @@ func (db *DB) GetJobByID(id string) (*models.Job, error) {
 		       original_file_url, processed_file_url, preset_type, ai_prompt,
 		       ai_response, changelog, tokens_used, credits_used, error_message,
 		       created_at, updated_at
-		FROM mod_jobs WHERE id = ?
+		FROM mod_jobs WHERE id = $1
 	`
 
 	job := &models.Job{}
@@ -381,10 +381,10 @@ func (db *DB) GetJobByID(id string) (*models.Job, error) {
 func (db *DB) UpdateJob(job *models.Job) error {
 	query := `
 		UPDATE mod_jobs SET 
-			status = ?, processed_file_url = ?, preset_type = ?, ai_prompt = ?,
-			ai_response = ?, changelog = ?, tokens_used = ?, credits_used = ?,
-			error_message = ?, updated_at = ?
-		WHERE id = ?
+			status = $1, processed_file_url = $2, preset_type = $3, ai_prompt = $4,
+			ai_response = $5, changelog = $6, tokens_used = $7, credits_used = $8,
+			error_message = $9, updated_at = $10
+		WHERE id = $11
 	`
 
 	job.UpdatedAt = time.Now()
@@ -406,7 +406,7 @@ func (db *DB) UpdateJob(job *models.Job) error {
 func (db *DB) CreateSession(session *models.UserSession) error {
 	query := `
 		INSERT INTO user_sessions (id, user_id, token, expires_at, created_at)
-		VALUES (?, ?, ?, ?, ?)
+		VALUES ($1, $2, $3, $4, $5)
 	`
 
 	_, err := db.Exec(query,
@@ -424,7 +424,7 @@ func (db *DB) CreateSession(session *models.UserSession) error {
 func (db *DB) GetSessionByToken(token string) (*models.UserSession, error) {
 	query := `
 		SELECT id, user_id, token, expires_at, created_at
-		FROM user_sessions WHERE token = ?
+		FROM user_sessions WHERE token = $1
 	`
 
 	session := &models.UserSession{}
@@ -444,7 +444,7 @@ func (db *DB) GetSessionByToken(token string) (*models.UserSession, error) {
 
 // DeleteSession deletes a user session
 func (db *DB) DeleteSession(token string) error {
-	query := `DELETE FROM user_sessions WHERE token = ?`
+	query := `DELETE FROM user_sessions WHERE token = $1`
 
 	_, err := db.Exec(query, token)
 	if err != nil {
@@ -464,16 +464,16 @@ func (db *DB) GetUserJobs(userID string, page, limit int, status string) ([]*mod
 		       ai_response, changelog, tokens_used, credits_used, error_message,
 		       created_at, updated_at
 		FROM mod_jobs 
-		WHERE user_id = ?
+		WHERE user_id = $1
 	`
 	args := []interface{}{userID}
 
 	if status != "" {
-		query += " AND status = ?"
+		query += " AND status = $1"
 		args = append(args, status)
 	}
 
-	query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+	query += " ORDER BY created_at DESC LIMIT $1 OFFSET $1"
 	args = append(args, limit, offset)
 
 	rows, err := db.Query(query, args...)
@@ -535,7 +535,7 @@ func (db *DB) GetPresets() ([]*models.ModPreset, error) {
 func (db *DB) GetPresetsByType(gameType string) ([]*models.ModPreset, error) {
 	query := `
 		SELECT id, name, description, game_type, prompt_template, credit_cost, is_active, created_at
-		FROM mod_presets WHERE game_type = ? AND is_active = true
+		FROM mod_presets WHERE game_type = $1 AND is_active = true
 		ORDER BY name
 	`
 
