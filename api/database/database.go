@@ -10,9 +10,12 @@ import (
 	"modforge.ai/api/models"
 
 	"github.com/golang-migrate/migrate/v4"
+	"github.com/golang-migrate/migrate/v4/database"
+	"github.com/golang-migrate/migrate/v4/database/postgres"
 	"github.com/golang-migrate/migrate/v4/database/sqlite3"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/lib/pq"          // PostgreSQL driver
+	_ "github.com/mattn/go-sqlite3" // SQLite driver
 )
 
 // DB wraps the database connection
@@ -22,10 +25,18 @@ type DB struct {
 
 // Initialize creates a new database connection
 func Initialize(databaseURL string) (*DB, error) {
-	// Parse the database URL (simple SQLite for now)
-	dbPath := strings.TrimPrefix(databaseURL, "sqlite://")
+	var sqlDB *sql.DB
+	var err error
 
-	sqlDB, err := sql.Open("sqlite3", dbPath)
+	if strings.HasPrefix(databaseURL, "postgresql://") || strings.HasPrefix(databaseURL, "postgres://") {
+		// PostgreSQL
+		sqlDB, err = sql.Open("postgres", databaseURL)
+	} else {
+		// SQLite (default)
+		dbPath := strings.TrimPrefix(databaseURL, "sqlite://")
+		sqlDB, err = sql.Open("sqlite3", dbPath)
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
@@ -39,18 +50,33 @@ func Initialize(databaseURL string) (*DB, error) {
 
 // RunMigrations runs database migrations
 func RunMigrations(databaseURL string) error {
-	// Parse the database URL
-	dbPath := strings.TrimPrefix(databaseURL, "sqlite://")
+	var db *sql.DB
+	var err error
+	var driverName string
 
-	// Open database for migrations
-	db, err := sql.Open("sqlite3", dbPath)
+	if strings.HasPrefix(databaseURL, "postgresql://") || strings.HasPrefix(databaseURL, "postgres://") {
+		// PostgreSQL
+		db, err = sql.Open("postgres", databaseURL)
+		driverName = "postgres"
+	} else {
+		// SQLite (default)
+		dbPath := strings.TrimPrefix(databaseURL, "sqlite://")
+		db, err = sql.Open("sqlite3", dbPath)
+		driverName = "sqlite3"
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to open database for migrations: %w", err)
 	}
 	defer db.Close()
 
 	// Create driver for migrations
-	driver, err := sqlite3.WithInstance(db, &sqlite3.Config{})
+	var driver database.Driver
+	if driverName == "postgres" {
+		driver, err = postgres.WithInstance(db, &postgres.Config{})
+	} else {
+		driver, err = sqlite3.WithInstance(db, &sqlite3.Config{})
+	}
 	if err != nil {
 		return fmt.Errorf("failed to create migration driver: %w", err)
 	}
@@ -58,7 +84,7 @@ func RunMigrations(databaseURL string) error {
 	// Create migration instance
 	m, err := migrate.NewWithDatabaseInstance(
 		"file://./migrations",
-		"sqlite3",
+		driverName,
 		driver,
 	)
 	if err != nil {
