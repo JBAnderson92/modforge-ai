@@ -26,15 +26,21 @@ func Setup(app *fiber.App, db *database.DB, cfg *config.Config, storageClient *s
 
 	// Authentication routes
 	auth := v1.Group("/auth")
+	auth.Post("/register", h.Register)
+	auth.Post("/login", h.Login)
 	auth.Post("/verify", h.VerifyToken)
 
+	// Protected routes (require authentication)
+	protected := v1.Group("")
+	protected.Use(h.VerifyToken) // Auth middleware
+
 	// User routes
-	users := v1.Group("/users")
+	users := protected.Group("/users")
 	users.Get("/profile", h.GetUserProfile)
 	users.Put("/profile", h.UpdateUserProfile)
 
 	// Mod processing routes
-	mods := v1.Group("/mods")
+	mods := protected.Group("/mods")
 	mods.Post("/upload", h.UploadMod)
 	mods.Get("/jobs/:id", h.GetJobStatus)
 	mods.Post("/jobs/:id/process", h.ProcessMod)
@@ -42,12 +48,12 @@ func Setup(app *fiber.App, db *database.DB, cfg *config.Config, storageClient *s
 	mods.Get("/jobs", h.GetUserJobs)
 
 	// Mod presets
-	presets := v1.Group("/presets")
+	presets := v1.Group("/presets") // Public endpoints
 	presets.Get("/", h.GetPresets)
 	presets.Get("/:type", h.GetPresetsByType)
 
-	// Credits and billing (mocked for MVP)
-	billing := v1.Group("/billing")
+	// Credits and billing (protected)
+	billing := protected.Group("/billing")
 	billing.Get("/credits", h.GetCredits)
 	billing.Post("/credits/purchase", h.PurchaseCredits)
 }

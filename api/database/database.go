@@ -143,14 +143,14 @@ func RunMigrations(databaseURL string) error {
 // GetUserByID retrieves a user by ID
 func (db *DB) GetUserByID(id string) (*models.User, error) {
 	query := `
-		SELECT id, email, firebase_uid, display_name, credits, plan, 
+		SELECT id, email, password_hash, firebase_uid, display_name, credits, plan,
 		       monthly_jobs_used, monthly_jobs_reset_date, created_at, updated_at
 		FROM users WHERE id = ?
 	`
 
 	user := &models.User{}
 	err := db.QueryRow(query, id).Scan(
-		&user.ID, &user.Email, &user.FirebaseUID, &user.DisplayName,
+		&user.ID, &user.Email, &user.Password, &user.FirebaseUID, &user.DisplayName,
 		&user.Credits, &user.Plan, &user.MonthlyJobsUsed,
 		&user.MonthlyJobsResetDate, &user.CreatedAt, &user.UpdatedAt,
 	)
@@ -187,6 +187,51 @@ func (db *DB) UpdateUser(user *models.User) error {
 	}
 
 	return nil
+}
+
+// CreateUser creates a new user record
+func (db *DB) CreateUser(user *models.User) error {
+	query := `
+		INSERT INTO users (id, email, password_hash, firebase_uid, display_name, credits, plan, monthly_jobs_used, monthly_jobs_reset_date, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	`
+
+	_, err := db.Exec(query,
+		user.ID, user.Email, user.Password, user.FirebaseUID, user.DisplayName,
+		user.Credits, user.Plan, user.MonthlyJobsUsed, user.MonthlyJobsResetDate,
+		user.CreatedAt, user.UpdatedAt,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to create user: %w", err)
+	}
+
+	return nil
+}
+
+// GetUserByEmail retrieves a user by email
+func (db *DB) GetUserByEmail(email string) (*models.User, error) {
+	query := `
+		SELECT id, email, password_hash, firebase_uid, display_name, credits, plan,
+		       monthly_jobs_used, monthly_jobs_reset_date, created_at, updated_at
+		FROM users WHERE email = ?
+	`
+
+	user := &models.User{}
+	err := db.QueryRow(query, email).Scan(
+		&user.ID, &user.Email, &user.Password, &user.FirebaseUID, &user.DisplayName,
+		&user.Credits, &user.Plan, &user.MonthlyJobsUsed,
+		&user.MonthlyJobsResetDate, &user.CreatedAt, &user.UpdatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("user not found")
+		}
+		return nil, fmt.Errorf("failed to get user: %w", err)
+	}
+
+	return user, nil
 }
 
 // CreateJob creates a new job record
@@ -258,6 +303,58 @@ func (db *DB) UpdateJob(job *models.Job) error {
 
 	if err != nil {
 		return fmt.Errorf("failed to update job: %w", err)
+	}
+
+	return nil
+}
+
+// CreateSession creates a new user session
+func (db *DB) CreateSession(session *models.UserSession) error {
+	query := `
+		INSERT INTO user_sessions (id, user_id, token, expires_at, created_at)
+		VALUES (?, ?, ?, ?, ?)
+	`
+
+	_, err := db.Exec(query,
+		session.ID, session.UserID, session.Token, session.ExpiresAt, session.CreatedAt,
+	)
+
+	if err != nil {
+		return fmt.Errorf("failed to create session: %w", err)
+	}
+
+	return nil
+}
+
+// GetSessionByToken retrieves a session by token
+func (db *DB) GetSessionByToken(token string) (*models.UserSession, error) {
+	query := `
+		SELECT id, user_id, token, expires_at, created_at
+		FROM user_sessions WHERE token = ?
+	`
+
+	session := &models.UserSession{}
+	err := db.QueryRow(query, token).Scan(
+		&session.ID, &session.UserID, &session.Token, &session.ExpiresAt, &session.CreatedAt,
+	)
+
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("session not found")
+		}
+		return nil, fmt.Errorf("failed to get session: %w", err)
+	}
+
+	return session, nil
+}
+
+// DeleteSession deletes a user session
+func (db *DB) DeleteSession(token string) error {
+	query := `DELETE FROM user_sessions WHERE token = ?`
+	
+	_, err := db.Exec(query, token)
+	if err != nil {
+		return fmt.Errorf("failed to delete session: %w", err)
 	}
 
 	return nil

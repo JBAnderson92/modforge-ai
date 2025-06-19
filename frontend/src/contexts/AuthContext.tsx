@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import config from '../config'
 
-// Mock user interface for MVP
+// User interface for authentication
 interface User {
   id: string
   email: string
-  displayName: string
+  display_name: string
   credits: number
   plan: string
 }
@@ -12,8 +13,10 @@ interface User {
 interface AuthContextType {
   user: User | null
   login: (email: string, password: string) => Promise<void>
+  register: (email: string, password: string, displayName: string) => Promise<void>
   logout: () => Promise<void>
   loading: boolean
+  token: string | null
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -32,22 +35,31 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
+  const [token, setToken] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Mock authentication - in production, integrate with Firebase Auth
-  const login = async (email: string, _password: string) => {
+  // Real authentication with backend API
+  const login = async (email: string, password: string) => {
     setLoading(true)
     try {
-      // Mock login - replace with Firebase Auth
-      const mockUser: User = {
-        id: '1',
-        email: email,
-        displayName: email.split('@')[0],
-        credits: 10,
-        plan: 'free'
+      const response = await fetch(`${config.apiUrl}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email, password }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Login failed')
       }
-      setUser(mockUser)
-      localStorage.setItem('modforge_user', JSON.stringify(mockUser))
+
+      setUser(data.user)
+      setToken(data.token)
+      localStorage.setItem('modforge_user', JSON.stringify(data.user))
+      localStorage.setItem('modforge_token', data.token)
     } catch (error) {
       console.error('Login failed:', error)
       throw error
@@ -56,20 +68,59 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }
 
+  const register = async (email: string, password: string, displayName: string) => {
+    setLoading(true)
+    try {
+      const response = await fetch(`${config.apiUrl}/api/v1/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          email, 
+          password, 
+          display_name: displayName 
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Registration failed')
+      }
+
+      setUser(data.user)
+      setToken(data.token)
+      localStorage.setItem('modforge_user', JSON.stringify(data.user))
+      localStorage.setItem('modforge_token', data.token)
+    } catch (error) {
+      console.error('Registration failed:', error)
+      throw error
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const logout = async () => {
     setUser(null)
+    setToken(null)
     localStorage.removeItem('modforge_user')
+    localStorage.removeItem('modforge_token')
   }
 
   // Check for existing session on mount
   useEffect(() => {
     const storedUser = localStorage.getItem('modforge_user')
-    if (storedUser) {
+    const storedToken = localStorage.getItem('modforge_token')
+    
+    if (storedUser && storedToken) {
       try {
         setUser(JSON.parse(storedUser))
+        setToken(storedToken)
       } catch (error) {
         console.error('Failed to parse stored user:', error)
         localStorage.removeItem('modforge_user')
+        localStorage.removeItem('modforge_token')
       }
     }
     setLoading(false)
@@ -78,8 +129,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const value: AuthContextType = {
     user,
     login,
+    register,
     logout,
-    loading
+    loading,
+    token
   }
 
   return (

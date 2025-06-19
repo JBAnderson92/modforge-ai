@@ -1,6 +1,7 @@
 import React, { useState, useCallback } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { Upload as UploadIcon, FileText, Settings, Wand2, Download, CheckCircle, AlertCircle, Clock } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 import config from '../config'
 
 interface UploadedFile {
@@ -20,6 +21,7 @@ interface Preset {
 }
 
 const Upload: React.FC = () => {
+  const { token } = useAuth()
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([])
   const [presets, setPresets] = useState<Preset[]>([])
   const [selectedPreset, setSelectedPreset] = useState<string>('')
@@ -54,6 +56,9 @@ const Upload: React.FC = () => {
         
         const response = await fetch(`${config.apiUrl}/api/v1/mods/upload`, {
           method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
           body: formData,
         })
         
@@ -101,6 +106,7 @@ const Upload: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           preset_id: selectedPreset || 'minecraft_balance',
@@ -142,7 +148,11 @@ const Upload: React.FC = () => {
   const pollJobStatus = async (jobId: string, fileIndex: number) => {
     const poll = async () => {
       try {
-        const response = await fetch(`${config.apiUrl}/api/v1/mods/jobs/${jobId}`)
+        const response = await fetch(`${config.apiUrl}/api/v1/mods/jobs/${jobId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        })
         const job = await response.json()
         
         setUploadedFiles(prev => 
@@ -174,7 +184,11 @@ const Upload: React.FC = () => {
     if (!file.jobId) return
 
     try {
-      const response = await fetch(`${config.apiUrl}/api/v1/mods/jobs/${file.jobId}/download`)
+      const response = await fetch(`${config.apiUrl}/api/v1/mods/jobs/${file.jobId}/download`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      })
       const result = await response.json()
       
       if (response.ok && result.download_url) {

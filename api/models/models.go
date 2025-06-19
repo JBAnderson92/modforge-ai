@@ -8,7 +8,8 @@ import (
 type User struct {
 	ID                   string    `json:"id" db:"id"`
 	Email                string    `json:"email" db:"email"`
-	FirebaseUID          string    `json:"firebase_uid" db:"firebase_uid"`
+	Password             string    `json:"-" db:"password_hash"` // Hidden from JSON response
+	FirebaseUID          *string   `json:"firebase_uid,omitempty" db:"firebase_uid"`
 	DisplayName          string    `json:"display_name" db:"display_name"`
 	Credits              int       `json:"credits" db:"credits"`
 	Plan                 string    `json:"plan" db:"plan"`
@@ -56,11 +57,11 @@ type ModPreset struct {
 
 // UserSession represents a user authentication session
 type UserSession struct {
-	ID            string    `json:"id" db:"id"`
-	UserID        string    `json:"user_id" db:"user_id"`
-	FirebaseToken string    `json:"firebase_token" db:"firebase_token"`
-	ExpiresAt     time.Time `json:"expires_at" db:"expires_at"`
-	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	ID        string    `json:"id" db:"id"`
+	UserID    string    `json:"user_id" db:"user_id"`
+	Token     string    `json:"token" db:"token"`
+	ExpiresAt time.Time `json:"expires_at" db:"expires_at"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }
 
 // Job status constants

@@ -2,9 +2,12 @@ package handlers
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -18,6 +21,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/google/uuid"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Handlers contains all HTTP handlers
@@ -47,10 +51,197 @@ func (h *Handlers) HealthCheck(c *fiber.Ctx) error {
 	})
 }
 
-// VerifyToken verifies Firebase auth token
+// RegisterRequest represents a user registration request
+type RegisterRequest struct {
+	Email       string `json:"email" validate:"required,email"`
+	Password    string `json:"password" validate:"required,min=8"`
+	DisplayName string `json:"display_name" validate:"required,min=2,max=50"`
+}
+
+// LoginRequest represents a user login request
+type LoginRequest struct {
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required"`
+}
+
+// AuthResponse represents the response from auth endpoints
+type AuthResponse struct {
+	User  *models.User `json:"user"`
+	Token string       `json:"token"`
+}
+
+// Register handles user registration
+func (h *Handlers) Register(c *fiber.Ctx) error {
+	var req RegisterRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	// Validate email format
+	if !isValidEmail(req.Email) {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid email format"})
+	}
+
+	// Validate password strength
+	if !isValidPassword(req.Password) {
+		return c.Status(400).JSON(fiber.Map{"error": "Password must be at least 8 characters long and contain at least one uppercase letter, one lowercase letter, one number, and one special character"})
+	}
+
+	// Check if user already exists
+	existingUser, _ := h.db.GetUserByEmail(req.Email)
+	if existingUser != nil {
+		return c.Status(409).JSON(fiber.Map{"error": "User with this email already exists"})
+	}
+
+	// Hash password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to process password"})
+	}
+
+	// Create user
+	user := &models.User{
+		ID:          uuid.New().String(),
+		Email:       req.Email,
+		DisplayName: req.DisplayName,
+		Password:    string(hashedPassword),
+		Credits:     10, // Free signup credits
+		Plan:        models.PlanFree,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}
+
+	if err := h.db.CreateUser(user); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to create user"})
+	}
+
+	// Generate session token
+	token, err := h.generateSessionToken(user.ID)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to generate session"})
+	}
+
+	// Don't return password in response
+	user.Password = ""
+
+	return c.Status(201).JSON(AuthResponse{
+		User:  user,
+		Token: token,
+	})
+}
+
+// Login handles user login
+func (h *Handlers) Login(c *fiber.Ctx) error {
+	var req LoginRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	// Get user by email
+	user, err := h.db.GetUserByEmail(req.Email)
+	if err != nil {
+		return c.Status(401).JSON(fiber.Map{"error": "Invalid email or password"})
+	}
+
+	// Verify password
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		return c.Status(401).JSON(fiber.Map{"error": "Invalid email or password"})
+	}
+
+	// Generate session token
+	token, err := h.generateSessionToken(user.ID)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to generate session"})
+	}
+
+	// Don't return password in response
+	user.Password = ""
+
+	return c.JSON(AuthResponse{
+		User:  user,
+		Token: token,
+	})
+}
+
+// generateSessionToken creates a new session token
+func (h *Handlers) generateSessionToken(userID string) (string, error) {
+	// Generate random token
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	token := hex.EncodeToString(bytes)
+
+	// Create session
+	session := &models.UserSession{
+		ID:        uuid.New().String(),
+		UserID:    userID,
+		Token:     token,
+		ExpiresAt: time.Now().Add(24 * time.Hour), // 24 hour expiry
+		CreatedAt: time.Now(),
+	}
+
+	if err := h.db.CreateSession(session); err != nil {
+		return "", err
+	}
+
+	return token, nil
+}
+
+// isValidEmail validates email format
+func isValidEmail(email string) bool {
+	emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+	return emailRegex.MatchString(email)
+}
+
+// isValidPassword validates password strength
+func isValidPassword(password string) bool {
+	if len(password) < 8 {
+		return false
+	}
+
+	hasUpper := regexp.MustCompile(`[A-Z]`).MatchString(password)
+	hasLower := regexp.MustCompile(`[a-z]`).MatchString(password)
+	hasNumber := regexp.MustCompile(`[0-9]`).MatchString(password)
+	hasSpecial := regexp.MustCompile(`[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?~` + "`" + `]`).MatchString(password)
+
+	return hasUpper && hasLower && hasNumber && hasSpecial
+}
+
+// VerifyToken verifies session token and sets user context
 func (h *Handlers) VerifyToken(c *fiber.Ctx) error {
-	// TODO: Implement Firebase token verification
-	return c.JSON(fiber.Map{"message": "Token verification endpoint"})
+	token := c.Get("Authorization")
+	if token == "" {
+		return c.Status(401).JSON(fiber.Map{"error": "Authorization token required"})
+	}
+
+	// Remove "Bearer " prefix if present
+	if strings.HasPrefix(token, "Bearer ") {
+		token = strings.TrimPrefix(token, "Bearer ")
+	}
+
+	// Verify token
+	session, err := h.db.GetSessionByToken(token)
+	if err != nil {
+		return c.Status(401).JSON(fiber.Map{"error": "Invalid token"})
+	}
+
+	// Check if token is expired
+	if time.Now().After(session.ExpiresAt) {
+		return c.Status(401).JSON(fiber.Map{"error": "Token expired"})
+	}
+
+	// Get user
+	user, err := h.db.GetUserByID(session.UserID)
+	if err != nil {
+		return c.Status(401).JSON(fiber.Map{"error": "User not found"})
+	}
+
+	// Set user in context
+	c.Locals("user_id", user.ID)
+	c.Locals("user", user)
+
+	return c.Next()
 }
 
 // GetUserProfile returns user profile information
@@ -91,6 +282,12 @@ func (h *Handlers) UpdateUserProfile(c *fiber.Ctx) error {
 // UploadMod handles mod file upload and analysis
 func (h *Handlers) UploadMod(c *fiber.Ctx) error {
 	ctx := context.Background()
+
+	// Get authenticated user
+	userID, ok := c.Locals("user_id").(string)
+	if !ok {
+		return c.Status(401).JSON(fiber.Map{"error": "Authentication required"})
+	}
 
 	// Get the uploaded file
 	file, err := c.FormFile("mod_file")
@@ -135,7 +332,7 @@ func (h *Handlers) UploadMod(c *fiber.Ctx) error {
 	// Create a new job
 	job := &models.Job{
 		ID:          uuid.New().String(),
-		UserID:      c.Get("user_id", "anonymous"), // Get from auth middleware
+		UserID:      userID, // Use authenticated user ID
 		Status:      "pending",
 		ModType:     modType,
 		OriginalURL: fileURL,
@@ -385,7 +582,10 @@ func (h *Handlers) GetPresetsByType(c *fiber.Ctx) error {
 
 // GetCredits returns user's credit balance
 func (h *Handlers) GetCredits(c *fiber.Ctx) error {
-	userID := c.Get("user_id", "anonymous")
+	userID, ok := c.Locals("user_id").(string)
+	if !ok {
+		return c.Status(401).JSON(fiber.Map{"error": "Authentication required"})
+	}
 
 	user, err := h.db.GetUserByID(userID)
 	if err != nil {
@@ -400,7 +600,10 @@ func (h *Handlers) GetCredits(c *fiber.Ctx) error {
 
 // PurchaseCredits handles credit purchases
 func (h *Handlers) PurchaseCredits(c *fiber.Ctx) error {
-	userID := c.Get("user_id", "anonymous")
+	userID, ok := c.Locals("user_id").(string)
+	if !ok {
+		return c.Status(401).JSON(fiber.Map{"error": "Authentication required"})
+	}
 
 	var purchase struct {
 		Amount int    `json:"amount"`
@@ -414,7 +617,7 @@ func (h *Handlers) PurchaseCredits(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid credit amount"})
 	}
 
-	// TODO: Implement actual payment processing
+	// TODO: Implement actual payment processing with PayPal
 	// For now, just add credits directly (for testing)
 	user, err := h.db.GetUserByID(userID)
 	if err != nil {
