@@ -469,11 +469,11 @@ func (db *DB) GetUserJobs(userID string, page, limit int, status string) ([]*mod
 	args := []interface{}{userID}
 
 	if status != "" {
-		query += " AND status = $1"
+		query += " AND status = $2"
 		args = append(args, status)
 	}
 
-	query += " ORDER BY created_at DESC LIMIT $1 OFFSET $1"
+	query += " ORDER BY created_at DESC LIMIT $" + fmt.Sprintf("%d", len(args)+1) + " OFFSET $" + fmt.Sprintf("%d", len(args)+2)
 	args = append(args, limit, offset)
 
 	rows, err := db.Query(query, args...)
