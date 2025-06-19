@@ -1,0 +1,38 @@
+
+// Enhanced by ModForge.ai with prompt: Transform this into a legendary weapon with netherite materials and powerful enchantments
+// - Upgraded materials from diamond to netherite
+// - Added enchantments for better gameplay
+// - Balanced recipe cost
+{
+  "format_version": "1.19.0",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "modforge:custom_sword"
+    },
+    "tags": ["crafting_table"],
+    "pattern": [
+      " X ",
+      " X ",
+      " S "
+    ],
+    "key": {
+      "X": {
+        "item": "minecraft:netherite_ingot"
+      },
+      "S": {
+        "item": "minecraft:stick"
+      }
+    },
+    "result": {
+      "item": "modforge:legendary_netherite_sword",
+      "data": 0,
+      "count": 1,
+      "components": {
+        "minecraft:enchantments": {
+          "minecraft:sharpness": 3,
+          "minecraft:unbreaking": 2
+        }
+      }
+    }
+  }
+}
