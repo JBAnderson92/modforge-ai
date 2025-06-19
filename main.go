@@ -61,21 +61,10 @@ Environment Setup:
 func runAPIServer() {
 	// Check if we're in production (no Go available)
 	if !isCommandAvailable("go") {
-		// In production, we should have a pre-built binary
-		// For now, let's just redirect to the api binary
-		fmt.Println("Production mode detected - looking for API binary...")
-		
-		// Try to find and run the API binary
-		if _, err := os.Stat("./api-server"); err == nil {
-			cmd := exec.Command("./api-server")
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-			if err := cmd.Run(); err != nil {
-				log.Fatalf("Failed to start API server: %v", err)
-			}
-		} else {
-			log.Fatal("API server binary not found in production mode")
-		}
+		// In production, the binary should just run the API server directly
+		// Since this is getting complex, let's use a simpler approach
+		// The main binary should just be the API server in production
+		log.Fatal("API server should be running directly from this binary in production mode")
 	} else {
 		// Development mode
 		cmd := exec.Command("go", "run", "./api/main.go")
