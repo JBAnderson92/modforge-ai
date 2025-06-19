@@ -70,6 +70,26 @@ func RunMigrations(databaseURL string) error {
 	}
 	defer db.Close()
 
+	// For PostgreSQL, try to clean up any existing migration state
+	if driverName == "postgres" {
+		log.Println("Checking PostgreSQL migration state...")
+		
+		// Check if schema_migrations table exists and clean it up if needed
+		var exists bool
+		err := db.QueryRow("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'schema_migrations')").Scan(&exists)
+		if err != nil {
+			log.Printf("Error checking for schema_migrations table: %v", err)
+		}
+		
+		if exists {
+			log.Println("Found existing schema_migrations table, cleaning up...")
+			// Drop the schema_migrations table to start fresh
+			if _, err := db.Exec("DROP TABLE IF EXISTS schema_migrations"); err != nil {
+				log.Printf("Warning: Failed to drop schema_migrations table: %v", err)
+			}
+		}
+	}
+
 	// Create driver for migrations
 	var driver database.Driver
 	if driverName == "postgres" {
@@ -93,13 +113,20 @@ func RunMigrations(databaseURL string) error {
 
 	// Run migrations
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		// Check if it's a dirty database error
-		if strings.Contains(err.Error(), "Dirty database") {
-			log.Println("Database is in dirty state, forcing clean state...")
-			// Force the version to 0 and try again
-			if err := m.Force(0); err != nil {
-				return fmt.Errorf("failed to force clean migration state: %w", err)
+		// Check if it's a dirty database error or missing migration file
+		if strings.Contains(err.Error(), "Dirty database") || strings.Contains(err.Error(), "no migration found for version 0") {
+			log.Printf("Migration issue detected: %v", err)
+			log.Println("Attempting to reset migration state...")
+			
+			// Try to force to version 1 (our actual first migration)
+			if err := m.Force(1); err != nil {
+				log.Printf("Failed to force to version 1, trying version 0: %v", err)
+				// If that fails, try forcing to 0
+				if err := m.Force(0); err != nil {
+					return fmt.Errorf("failed to force clean migration state: %w", err)
+				}
 			}
+			
 			// Try running migrations again
 			if err := m.Up(); err != nil && err != migrate.ErrNoChange {
 				return fmt.Errorf("failed to run migrations after force reset: %w", err)
