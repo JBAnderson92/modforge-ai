@@ -93,7 +93,20 @@ func RunMigrations(databaseURL string) error {
 
 	// Run migrations
 	if err := m.Up(); err != nil && err != migrate.ErrNoChange {
-		return fmt.Errorf("failed to run migrations: %w", err)
+		// Check if it's a dirty database error
+		if strings.Contains(err.Error(), "Dirty database") {
+			log.Println("Database is in dirty state, forcing clean state...")
+			// Force the version to 0 and try again
+			if err := m.Force(0); err != nil {
+				return fmt.Errorf("failed to force clean migration state: %w", err)
+			}
+			// Try running migrations again
+			if err := m.Up(); err != nil && err != migrate.ErrNoChange {
+				return fmt.Errorf("failed to run migrations after force reset: %w", err)
+			}
+		} else {
+			return fmt.Errorf("failed to run migrations: %w", err)
+		}
 	}
 
 	log.Println("Database migrations completed successfully")

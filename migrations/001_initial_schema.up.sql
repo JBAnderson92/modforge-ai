@@ -6,9 +6,9 @@ CREATE TABLE users (
     credits INTEGER DEFAULT 0,
     plan TEXT DEFAULT 'free',
     monthly_jobs_used INTEGER DEFAULT 0,
-    monthly_jobs_reset_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    monthly_jobs_reset_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE mod_jobs (
@@ -27,8 +27,8 @@ CREATE TABLE mod_jobs (
     tokens_used INTEGER DEFAULT 0,
     credits_used INTEGER DEFAULT 0,
     error_message TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
@@ -40,15 +40,15 @@ CREATE TABLE mod_presets (
     prompt_template TEXT NOT NULL,
     credit_cost INTEGER DEFAULT 1,
     is_active BOOLEAN DEFAULT TRUE,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE user_sessions (
     id TEXT PRIMARY KEY,
     user_id TEXT NOT NULL,
     firebase_token TEXT NOT NULL,
-    expires_at DATETIME NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id)
 );
 
