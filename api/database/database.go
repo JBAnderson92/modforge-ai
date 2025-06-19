@@ -287,7 +287,7 @@ func (db *DB) UpdateUser(user *models.User) error {
 func (db *DB) CreateUser(user *models.User) error {
 	query := `
 		INSERT INTO users (id, email, password_hash, firebase_uid, display_name, credits, plan, monthly_jobs_used, monthly_jobs_reset_date, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $2)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`
 
 	_, err := db.Exec(query,
@@ -297,6 +297,7 @@ func (db *DB) CreateUser(user *models.User) error {
 	)
 
 	if err != nil {
+		log.Printf("Database error creating user: %v", err)
 		return fmt.Errorf("failed to create user: %w", err)
 	}
 
