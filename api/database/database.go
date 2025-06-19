@@ -50,6 +50,90 @@ func Initialize(databaseURL string) (*DB, error) {
 
 // RunMigrations runs database migrations
 func RunMigrations(databaseURL string) error {
+	// For production with existing database, apply manual schema updates
+	if strings.HasPrefix(databaseURL, "postgresql://") || strings.HasPrefix(databaseURL, "postgres://") {
+		log.Println("Production PostgreSQL detected - applying manual schema updates...")
+
+		db, err := sql.Open("postgres", databaseURL)
+		if err != nil {
+			return fmt.Errorf("failed to open database: %w", err)
+		}
+		defer db.Close()
+
+		// Check if users table exists
+		var exists bool
+		err = db.QueryRow("SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users')").Scan(&exists)
+		if err != nil {
+			return fmt.Errorf("failed to check for users table: %w", err)
+		}
+
+		if exists {
+			log.Println("Applying auth schema updates to existing database...")
+
+			// Add password_hash column if it doesn't exist
+			_, err = db.Exec(`
+				DO $$ 
+				BEGIN
+					IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
+								   WHERE table_name = 'users' AND column_name = 'password_hash') THEN
+						ALTER TABLE users ADD COLUMN password_hash TEXT;
+					END IF;
+				END $$;
+			`)
+			if err != nil {
+				log.Printf("Warning: Failed to add password_hash column: %v", err)
+			}
+
+			// Make firebase_uid nullable
+			_, err = db.Exec(`
+				DO $$ 
+				BEGIN
+					ALTER TABLE users ALTER COLUMN firebase_uid DROP NOT NULL;
+				EXCEPTION
+					WHEN OTHERS THEN NULL;
+				END $$;
+			`)
+			if err != nil {
+				log.Printf("Warning: Failed to make firebase_uid nullable: %v", err)
+			}
+
+			// Drop and recreate user_sessions table
+			_, err = db.Exec(`DROP TABLE IF EXISTS user_sessions;`)
+			if err != nil {
+				log.Printf("Warning: Failed to drop user_sessions: %v", err)
+			}
+
+			_, err = db.Exec(`
+				CREATE TABLE user_sessions (
+					id TEXT PRIMARY KEY,
+					user_id TEXT NOT NULL,
+					token TEXT UNIQUE NOT NULL,
+					expires_at TIMESTAMP NOT NULL,
+					created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+					FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+				);
+			`)
+			if err != nil {
+				log.Printf("Error creating user_sessions: %v", err)
+				return err
+			}
+
+			// Create indexes
+			_, err = db.Exec(`CREATE INDEX IF NOT EXISTS idx_user_sessions_token ON user_sessions(token);`)
+			if err != nil {
+				log.Printf("Warning: Failed to create token index: %v", err)
+			}
+
+			log.Println("Schema updates completed successfully")
+			return nil
+		}
+	}
+
+	// Fall back to normal migration process for new databases
+	return runStandardMigrations(databaseURL)
+}
+
+func runStandardMigrations(databaseURL string) error {
 	var db *sql.DB
 	var err error
 	var driverName string
